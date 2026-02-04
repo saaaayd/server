@@ -1,6 +1,7 @@
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const { logAction } = require('../utils/logger');
+const { uploadFile } = require('../utils/driveService');
 
 // @desc    Get all payments
 // @route   GET /api/payments
@@ -30,7 +31,7 @@ const getMyHistory = async (req, res) => {
 // @route   POST /api/payments
 // @access  Private (Admin)
 const createPayment = async (req, res) => {
-    const { student, amount, type, dueDate, notes } = req.body;
+    const { student, amount, type, dueDate, notes, receiptUrl } = req.body;
 
     try {
         // Check if student exists
@@ -39,13 +40,26 @@ const createPayment = async (req, res) => {
             return res.status(404).json({ message: 'Student not found' });
         }
 
+        let finalReceiptUrl = receiptUrl;
+
+        // Handle File Upload
+        if (req.file) {
+            try {
+                finalReceiptUrl = await uploadFile(req.file);
+            } catch (uErr) {
+                console.error(uErr);
+                return res.status(500).json({ message: 'Failed to upload receipt image' });
+            }
+        }
+
         const payment = await Payment.create({
             student,
             amount,
             type,
             dueDate,
             notes,
-            status: 'pending' // Default
+            receiptUrl: finalReceiptUrl,
+            status: finalReceiptUrl ? 'paid' : 'pending' // Default to paid if receipt provided? Or pending? User didn't specify, but usually receipt implies paid.
         });
 
         res.status(201).json(payment);
@@ -60,9 +74,9 @@ const createPayment = async (req, res) => {
     }
 };
 
-// @desc    Update payment status
-// @route   PATCH /api/payments/:id
-// @access  Private (Admin)
+// @desc    Update payment status / Upload receipt
+// @route   PUT/PATCH /api/payments/:id
+// @access  Private
 const updatePaymentStatus = async (req, res) => {
     const { status } = req.body;
 
@@ -73,18 +87,60 @@ const updatePaymentStatus = async (req, res) => {
             return res.status(404).json({ message: 'Payment not found' });
         }
 
-        payment.status = status;
-        if (status === 'paid') {
-            payment.paidDate = Date.now();
-        } else {
-            payment.paidDate = undefined;
+        // Handle File Upload
+        if (req.file) {
+            try {
+                const publicUrl = await uploadFile(req.file);
+                payment.receiptUrl = publicUrl;
+                payment.status = 'paid'; // Auto-set to paid if receipt uploaded
+            } catch (uErr) {
+                console.error(uErr);
+                return res.status(500).json({ message: 'Failed to upload receipt image' });
+            }
+        }
+
+        // Handle JSON Body Updates
+        if (status) payment.status = status;
+        if (req.body.receiptUrl && !req.file) payment.receiptUrl = req.body.receiptUrl; // Allow manual link overrides
+
+        if (payment.status === 'paid') {
+            // Only set paidDate if it wasn't set before
+            if (!payment.paidDate) payment.paidDate = Date.now();
+        } else if (payment.status !== 'verified') {
+            // Reset if moved away from paid/verified? 
+            // kept simple logic for now
         }
 
         const updatedPayment = await payment.save();
-        res.status(200).json(updatedPayment);
 
         // Log status update
-        await logAction(req.user.id, 'UPDATE_PAYMENT', `Updated payment ${payment._id} status to ${status}`, req);
+        const actorId = req.user ? req.user.id : 'system';
+        await logAction(actorId, 'UPDATE_PAYMENT', `Updated payment ${payment._id}`, req);
+
+        res.status(200).json(updatedPayment);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Delete payment
+// @route   DELETE /api/payments/:id
+// @access  Private (Admin)
+const deletePayment = async (req, res) => {
+    try {
+        const payment = await Payment.findById(req.params.id);
+
+        if (!payment) {
+            return res.status(404).json({ message: 'Payment not found' });
+        }
+
+        await payment.deleteOne();
+
+        // Log deletion
+        const actorId = req.user ? req.user.id : 'system';
+        await logAction(actorId, 'DELETE_PAYMENT', `Deleted payment ${req.params.id}`, req);
+
+        res.status(200).json({ message: 'Payment removed' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -95,4 +151,5 @@ module.exports = {
     getMyHistory,
     createPayment,
     updatePaymentStatus,
+    deletePayment,
 };

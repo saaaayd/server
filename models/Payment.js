@@ -30,6 +30,9 @@ const paymentSchema = new mongoose.Schema({
     notes: {
         type: String,
     },
+    receiptUrl: {
+        type: String,
+    },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Payment', paymentSchema);
