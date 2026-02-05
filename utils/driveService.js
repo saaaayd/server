@@ -1,17 +1,31 @@
 const { google } = require('googleapis');
 const stream = require('stream');
 const path = require('path');
+const fs = require('fs');
 
 // Load credentials
-// Assume the file is at server root or security folder based on user context
-const KEYFILEPATH = path.join(__dirname, '../security/dormsync-479923-b3b695aa406c.json');
-const SCOPES = ['https://www.googleapis.com/auth/drive'];
+const CREDENTIALS_PATH = path.join(__dirname, '../security/credentials.json');
+const TOKEN_PATH = path.join(__dirname, '../security/token.json');
 
-const auth = new google.auth.GoogleAuth({
-    keyFile: KEYFILEPATH,
-    scopes: SCOPES,
-});
+const getAuthClient = () => {
+    const content = fs.readFileSync(CREDENTIALS_PATH);
+    const keys = JSON.parse(content);
+    const key = keys.installed || keys.web;
 
+    const client = new google.auth.OAuth2(
+        key.client_id,
+        key.client_secret,
+        'http://localhost:3000/oauth2callback'
+    );
+
+    if (fs.existsSync(TOKEN_PATH)) {
+        const tokenToken = fs.readFileSync(TOKEN_PATH);
+        client.setCredentials(JSON.parse(tokenToken));
+    }
+    return client;
+};
+
+const auth = getAuthClient();
 const drive = google.drive({ version: 'v3', auth });
 
 /**
@@ -31,7 +45,7 @@ const uploadFile = async (fileObject) => {
             },
             requestBody: {
                 name: fileObject.originalname,
-                parents: ['1yCq1XjFGu9sU2vJ4Z8lK2pQ4Y5n3b6a7'], // Optional: Folder ID (You might want to make this configurable)
+                parents: process.env.DRIVE_FOLDER_ID ? [process.env.DRIVE_FOLDER_ID] : [],
             },
             fields: 'id, name, webViewLink, webContentLink',
         });
