@@ -56,7 +56,10 @@ app.get('/', (req, res) => {
 app.use(errorHandler);
 
 const { scheduleBackups } = require('./services/backupService');
+const { scheduleJobs } = require('./services/cronService');
+
 scheduleBackups();
+scheduleJobs();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

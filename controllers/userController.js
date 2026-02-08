@@ -182,11 +182,64 @@ const updateUserRole = async (req, res) => {
     }
 };
 
+// @desc    Get student history (attendance, payments, maintenance)
+// @route   GET /api/users/:id/history
+// @access  Admin, Manager, Super Admin
+const getStudentHistory = async (req, res) => {
+    try {
+        const studentId = req.params.id;
+
+        // Verify student exists
+        const student = await User.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        // Fetch all related data in parallel
+        const [attendance, payments, maintenance] = await Promise.all([
+            require('../models/Attendance').find({ student: studentId }).sort({ date: -1 }),
+            require('../models/Payment').find({ student: studentId }).select('-receiptData').sort({ createdAt: -1 }),
+            require('../models/MaintenanceRequest').find({ student: studentId }).sort({ createdAt: -1 })
+        ]);
+
+        res.json({
+            student: {
+                _id: student._id,
+                name: student.name,
+                email: student.email,
+                roomNumber: student.studentProfile?.roomNumber
+            },
+            attendance,
+            payments,
+            maintenance
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const deleteUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        await user.deleteOne();
+        res.json({ message: 'User removed' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getPendingUsers,
     approveUser,
     rejectUser,
     getStaff,
     createStaff,
-    updateUserRole
+    updateUserRole,
+    getStudentHistory,
+    deleteUser
 };

@@ -1,6 +1,7 @@
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const { logAction } = require('../utils/logger');
+const emailService = require('../services/emailService');
 
 // @desc    Get all payments
 // @route   GET /api/payments
@@ -119,8 +120,13 @@ const updatePaymentStatus = async (req, res) => {
         await payment.save();
 
         // Return the updated payment, but exclude the binary data to keep response light
-        const paymentResponse = await Payment.findById(payment._id).select('-receiptData');
+        const paymentResponse = await Payment.findById(payment._id).select('-receiptData').populate('student', 'firstName email');
         res.status(200).json(paymentResponse);
+
+        // Send receipt if paid
+        if (payment.status === 'paid' && paymentResponse.student) {
+            await emailService.sendPaymentReceipt(paymentResponse.student, paymentResponse);
+        }
 
         // Log status update
         await logAction(req.user.id, 'UPDATE_PAYMENT', `Updated payment ${payment._id} status to ${payment.status}`, req);

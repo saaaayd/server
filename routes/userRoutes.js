@@ -13,6 +13,7 @@ router.use(protect);
 router.get('/pending', restrictTo('admin', 'manager', 'super_admin'), getPendingUsers);
 router.put('/:id/approve', restrictTo('admin', 'manager', 'super_admin'), approveUser);
 router.put('/:id/reject', restrictTo('admin', 'manager', 'super_admin'), rejectUser);
+router.get('/:id/history', restrictTo('admin', 'manager', 'super_admin'), require('../controllers/userController').getStudentHistory);
 
 // Staff Management
 router.get('/staff', restrictTo('admin', 'manager', 'super_admin'), getStaff);
@@ -20,5 +21,6 @@ router.post('/staff', restrictTo('admin', 'manager', 'super_admin'), createStaff
 
 // Super Admin Only
 router.put('/:id/role', restrictTo('super_admin'), updateUserRole);
+router.delete('/:id', restrictTo('admin', 'manager', 'super_admin'), require('../controllers/userController').deleteUser);
 
 module.exports = router;

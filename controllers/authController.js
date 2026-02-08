@@ -5,43 +5,11 @@ const bcrypt = require('bcryptjs');
 const { logAction } = require('../utils/logger');
 
 const nodemailer = require('nodemailer');
+const emailService = require('../services/emailService');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Email Transporter
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: process.env.SMTP_PORT || 587,
-    secure: false, // true for 465, false for other ports
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-});
-
-const sendOTPEmail = async (email, otp) => {
-    const mailOptions = {
-        from: `"DormSync" <${process.env.SMTP_USER}>`,
-        to: email,
-        subject: 'DormSync Verification OTP',
-        html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                <h2 style="color: #001F3F; text-align: center;">Verify Your Account</h2>
-                <p style="color: #555; font-size: 16px;">Hello,</p>
-                <p style="color: #555; font-size: 16px;">Use the following OTP to verify your DormSync account. This code is valid for 10 minutes.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                    <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #001F3F; background-color: #f4f4f4; padding: 10px 20px; border-radius: 5px;">${otp}</span>
-                </div>
-                <p style="color: #555; font-size: 14px; text-align: center;">If you didn't request this, please ignore this email.</p>
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="color: #999; font-size: 12px; text-align: center;">&copy; ${new Date().getFullYear()} DormSync. All rights reserved.</p>
-            </div>
-        `
-    };
-
-    console.log(`[DEV] OTP for ${email}: ${otp}`); // For testing purposes
-    await transporter.sendMail(mailOptions);
-};
+// Email logic moved to services/emailService.js
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -81,7 +49,7 @@ const registerUser = async (req, res) => {
                 userExists.password = await bcrypt.hash(password, await bcrypt.genSalt(10));
 
                 await userExists.save();
-                await sendOTPEmail(email, otp);
+                await emailService.sendOTPEmail(email, otp);
 
                 return res.status(200).json({
                     message: 'Account exists but unverified. New OTP sent.',
@@ -125,7 +93,7 @@ const registerUser = async (req, res) => {
         });
 
         if (user) {
-            await sendOTPEmail(email, otp);
+            await emailService.sendOTPEmail(email, otp);
             res.status(201).json({
                 message: 'Registration successful. OTP sent to email.',
                 email: user.email,
@@ -159,7 +127,7 @@ const forgotPassword = async (req, res) => {
         user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
         await user.save();
-        await sendOTPEmail(email, otp);
+        await emailService.sendOTPEmail(email, otp);
 
         res.json({ message: 'OTP sent to your email.' });
         await logAction(user.id, 'FORGOT_PASSWORD', 'Requested password reset OTP', req);
@@ -415,6 +383,7 @@ const updateProfile = async (req, res) => {
             email: updatedUser.email,
             role: updatedUser.role,
             // token: generateToken(updatedUser.id), // Do not re-issue token to avoid sync issues
+            status: updatedUser.status,
             studentProfile: updatedUser.studentProfile,
             studentId: updatedUser.studentId
         });
@@ -465,24 +434,26 @@ const googleLogin = async (req, res) => {
             await logAction(user.id, 'REGISTER_GOOGLE', 'User registered via Google (Pending Approval)', req);
 
             return res.status(201).json({
-                message: 'Registration successful. Please wait for admin approval.',
-                status: 'pending'
+                _id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                token: generateToken(user.id),
+                status: 'pending',
+                studentProfile: user.studentProfile,
+                studentId: user.studentId,
+                message: 'Registration successful. Complete your profile.'
             });
         }
 
         // Allow Admins, Managers, Super Admins to bypass pending/rejected checks
         const allowedRoles = ['admin', 'manager', 'super_admin'];
         if (!allowedRoles.includes(user.role)) {
-            if (user.status === 'pending') {
-                return res.status(403).json({
-                    message: 'Account is pending approval. Please wait for admin confirmation.',
-                    code: 'PENDING_APPROVAL'
-                });
-            }
-
+            // Check if rejected
             if (user.status === 'rejected') {
                 return res.status(403).json({ message: 'Account has been rejected. Contact admin.' });
             }
+            // Pending users are allowed to proceed to get a token
         }
 
         res.json({
