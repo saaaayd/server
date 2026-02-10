@@ -1,0 +1,125 @@
+[
+  {
+    "_id": "6982b42a81e98c0afc788ad0",
+    "name": "Cydiemar Lagrosas",
+    "email": "lagrosascydiemar@gmail.com",
+    "password": "$2b$10$D3sxsmzRGImeqGsWPjGMxeRMfpmaiAQLxRNok9s.xupx1yfTsf5sS",
+    "role": "super_admin",
+    "createdAt": "2026-02-04T02:51:22.954Z",
+    "updatedAt": "2026-02-09T22:01:30.707Z",
+    "__v": 0,
+    "status": "active",
+    "fullName": "Cydiemar Lagrosas",
+    "id": "6982b42a81e98c0afc788ad0"
+  },
+  {
+    "_id": "69832232bc26edccd1fda086",
+    "name": "Airel Jay",
+    "email": "2301101136@student.buksu.edu.ph",
+    "password": "$2b$10$hSzlKVeZ6WXE8b6pONVFheaJAvDVL5/nSupNJZ6QBXLPwTqxNsvre",
+    "role": "super_admin",
+    "studentProfile": {
+      "status": "active",
+      "_id": "69832232bc26edccd1fda087",
+      "id": "69832232bc26edccd1fda087"
+    },
+    "status": "approved",
+    "createdAt": "2026-02-04T10:40:50.486Z",
+    "updatedAt": "2026-02-04T10:41:14.814Z",
+    "__v": 0,
+    "fullName": "Airel Jay",
+    "id": "69832232bc26edccd1fda086"
+  },
+  {
+    "_id": "69884a71e8e1d624383170fc",
+    "firstName": "Ewil",
+    "lastName": "Relova",
+    "email": "relovaaireljay@gmail.com",
+    "password": "$2b$10$p/517oa0WbDmOwTJmKyGC.R51LojUzBjNq2RsCAj4xNK00bDnA0Ne",
+    "role": "student",
+    "studentId": "2301101136",
+    "studentProfile": {
+      "roomNumber": "3",
+      "enrollmentDate": "2026-02-08T08:33:53.864Z",
+      "status": "active",
+      "_id": "69884a71e8e1d624383170fd",
+      "id": "69884a71e8e1d624383170fd"
+    },
+    "status": "approved",
+    "createdAt": "2026-02-08T08:33:53.949Z",
+    "updatedAt": "2026-02-08T08:38:07.688Z",
+    "name": "Ewil Relova",
+    "__v": 0,
+    "fullName": "Ewil Relova",
+    "id": "69884a71e8e1d624383170fc"
+  },
+  {
+    "_id": "69894b184ae4572e148bd7ac",
+    "firstName": "Myles",
+    "lastName": "Ocoy",
+    "email": "ocoymyles@gmail.com",
+    "password": "$2b$10$4S9y2CWRsqgPteSB1CAxh.IMMdm6MZmU4J6OYCdcipl12Kg/vbOlO",
+    "role": "student",
+    "studentId": "2392723647",
+    "studentProfile": {
+      "roomNumber": "1",
+      "enrollmentDate": "2026-02-09T02:48:56.743Z",
+      "status": "active",
+      "_id": "69894b184ae4572e148bd7ad",
+      "id": "69894b184ae4572e148bd7ad"
+    },
+    "status": "pending",
+    "createdAt": "2026-02-09T02:48:56.756Z",
+    "updatedAt": "2026-02-09T02:48:56.756Z",
+    "name": "Myles Ocoy",
+    "__v": 0,
+    "fullName": "Myles Ocoy",
+    "id": "69894b184ae4572e148bd7ac"
+  },
+  {
+    "_id": "69894badb0de418e83951251",
+    "firstName": "Joshua",
+    "lastName": "Cagaanan",
+    "middleInitial": "",
+    "email": "joshuacagaanan@gmail.com",
+    "password": "$2b$10$7wDMgN7Ey9r2NW7IVLG79e./Esqaisby9rUYQtdV/NFF6S0spkx7C",
+    "role": "student",
+    "studentId": "1234567",
+    "studentProfile": {
+      "roomNumber": "TBD",
+      "phoneNumber": "",
+      "emergencyContactName": "",
+      "emergencyContactPhone": "",
+      "status": "inactive",
+      "_id": "69894badb0de418e83951252",
+      "id": "69894badb0de418e83951252"
+    },
+    "status": "unverified",
+    "createdAt": "2026-02-09T02:51:25.888Z",
+    "updatedAt": "2026-02-09T02:51:25.888Z",
+    "name": "Joshua Cagaanan",
+    "__v": 0,
+    "fullName": "Joshua Cagaanan",
+    "id": "69894badb0de418e83951251"
+  },
+  {
+    "_id": "698a89a6df862bebbed723dd",
+    "firstName": "Ewil",
+    "lastName": "Relova",
+    "email": "ewilrelova@gmail.com",
+    "password": "$2b$10$69IL86JK6FbHTs12gWwUAe9/ijdvyagx3Zns9i7a4OvyXIsvAPXd6",
+    "role": "student",
+    "studentProfile": {
+      "status": "inactive",
+      "_id": "698a89a6df862bebbed723de",
+      "id": "698a89a6df862bebbed723de"
+    },
+    "status": "pending",
+    "createdAt": "2026-02-10T01:28:06.457Z",
+    "updatedAt": "2026-02-10T01:28:06.457Z",
+    "name": "Ewil Relova",
+    "__v": 0,
+    "fullName": "Ewil Relova",
+    "id": "698a89a6df862bebbed723dd"
+  }
+]

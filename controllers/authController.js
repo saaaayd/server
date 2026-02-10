@@ -88,7 +88,7 @@ const registerUser = asyncHandler(async (req, res) => {
         role,
         studentId: role === 'student' ? studentId : undefined,
         studentProfile: role === 'student' ? studentProfile : undefined,
-        status: 'unverified', // All new registrations (except explicit admin creates) need OTP
+        status: 'pending', // Default to pending so they appear in Admin dashboard immediately
         otp,
         otpExpires
     });
@@ -197,11 +197,8 @@ const verifyOTP = asyncHandler(async (req, res) => {
     }
 
     // Set status based on role
-    if (user.role === 'staff') {
-        user.status = 'pending'; // Staff needs admin approval
-    } else {
-        user.status = 'active'; // Students auto-activate (or 'pending' if you want admin approval for students too)
-    }
+    // Both staff and students need admin approval now
+    user.status = 'pending';
 
     user.otp = undefined;
     user.otpExpires = undefined;
@@ -218,14 +215,18 @@ const verifyOTP = asyncHandler(async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        role: user.role,
         studentProfile: user.studentProfile,
         studentId: user.studentId,
+        status: user.status,
         message: 'Email verified successfully'
     };
 
-    if (user.status === 'active') {
+    console.log('Verifying OTP. User Status:', user.status);
+    if (['active', 'pending', 'unverified'].includes(user.status)) {
         response.token = generateToken(user.id);
+        console.log('Token generated for user:', user.email);
+    } else {
+        console.log('No token generated. Status not allowed:', user.status);
     }
 
     res.json(response);
@@ -254,10 +255,11 @@ const loginUser = asyncHandler(async (req, res) => {
 
         const allowedRoles = ['admin', 'manager', 'super_admin'];
 
-        if (!allowedRoles.includes(user.role) && user.status === 'pending') {
-            res.status(403);
-            throw new Error('Account is pending approval. Please wait for admin confirmation.');
-        }
+        // Removed check for 'pending' status to allow them to login and see the PendingValidation screen
+        // if (!allowedRoles.includes(user.role) && user.status === 'pending') {
+        //     res.status(403);
+        //     throw new Error('Account is pending approval. Please wait for admin confirmation.');
+        // }
 
         if (!allowedRoles.includes(user.role) && user.status === 'rejected') {
             res.status(403);
@@ -274,7 +276,8 @@ const loginUser = asyncHandler(async (req, res) => {
             role: user.role,
             token: generateToken(user.id),
             studentProfile: user.studentProfile,
-            studentId: user.studentId
+            studentId: user.studentId,
+            status: user.status
         });
 
         await logAction(user.id, 'LOGIN', 'User logged in', req);
@@ -441,7 +444,8 @@ const googleLogin = asyncHandler(async (req, res) => {
         role: user.role,
         token: generateToken(user.id),
         studentProfile: user.studentProfile,
-        studentId: user.studentId
+        studentId: user.studentId,
+        status: user.status
     });
 
     // Log Google login

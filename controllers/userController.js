@@ -1,6 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
-const { sendApprovalEmail, sendRejectionEmail } = require('../utils/emailService');
+const { sendApprovalEmail, sendRejectionEmail } = require('../services/emailService');
 const { logAction } = require('../utils/logger');
 const bcrypt = require('bcryptjs');
 
@@ -65,7 +65,8 @@ const createStaff = asyncHandler(async (req, res) => {
 // @route   GET /api/users/pending
 // @access  Admin
 const getPendingUsers = asyncHandler(async (req, res) => {
-    const users = await User.find({ status: 'pending', role: 'student' }).select('-password');
+    // Fetch both pending and unverified students
+    const users = await User.find({ status: { $in: ['pending', 'unverified'] }, role: 'student' }).select('-password');
     res.json(users);
 });
 
