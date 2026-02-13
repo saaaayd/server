@@ -64,33 +64,40 @@ const backupDatabase = async () => {
 const cleanupOldBackups = () => {
     try {
         const files = fs.readdirSync(backupDir);
-        const now = Date.now();
-        const sevenDays = 7 * 24 * 60 * 60 * 1000;
 
-        files.forEach(file => {
+        // Filter only directories (assuming backups are directories) or whatever your backup format is
+        // Based on backupDatabase(), we create directories with timestamps.
+        const backupFolders = files.filter(file => {
             const filePath = path.join(backupDir, file);
-            const stats = fs.statSync(filePath);
-
-            if (now - stats.mtime.getTime() > sevenDays) {
-                if (stats.isDirectory()) {
-                    fs.rmSync(filePath, { recursive: true, force: true });
-                } else {
-                    fs.unlinkSync(filePath);
-                }
-                console.log(`[Backup] Deleted old backup: ${file}`);
-            }
+            return fs.statSync(filePath).isDirectory();
         });
+
+        // Sort by name (descending) since name is timestamp (ISO string)
+        // Newest backups will be at the beginning of the array
+        backupFolders.sort((a, b) => b.localeCompare(a));
+
+        const MAX_BACKUPS = 10;
+
+        if (backupFolders.length > MAX_BACKUPS) {
+            const backupsToDelete = backupFolders.slice(MAX_BACKUPS);
+
+            backupsToDelete.forEach(folder => {
+                const folderPath = path.join(backupDir, folder);
+                fs.rmSync(folderPath, { recursive: true, force: true });
+                console.log(`[Backup] Deleted old backup (Limit 10): ${folder}`);
+            });
+        }
     } catch (error) {
         console.error('[Backup] Cleanup failed:', error);
     }
 };
 
 const scheduleBackups = () => {
-    // Schedule task to run every 10 minutes
-    cron.schedule('*/10 * * * *', () => {
+    // Schedule task to run every hour
+    cron.schedule('0 * * * *', () => {
         backupDatabase();
     });
-    console.log('[Backup] Backup service scheduled (Every 10 minutes)');
+    console.log('[Backup] Backup service scheduled (Every hour)');
 };
 
-module.exports = { scheduleBackups, backupDatabase };
+module.exports = { scheduleBackups, backupDatabase, cleanupOldBackups };
