@@ -12,7 +12,7 @@ const { restrictTo } = require('../middleware/roleMiddleware');
 
 router.get('/', protect, restrictTo('admin', 'manager', 'super_admin', 'staff'), getMaintenanceRequests);
 router.get('/my-requests', protect, restrictTo('student'), getMyRequests);
-router.post('/', protect, restrictTo('student'), createRequest);
+router.post('/', protect, restrictTo('student', 'admin', 'manager', 'super_admin'), createRequest);
 router.patch('/:id/status', protect, restrictTo('admin', 'manager', 'super_admin', 'staff'), updateRequestStatus);
 router.delete('/:id', protect, restrictTo('admin', 'manager', 'super_admin', 'student'), deleteRequest);
 

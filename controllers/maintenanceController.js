@@ -30,15 +30,31 @@ const getMyRequests = async (req, res) => {
 // @route   POST /api/maintenance
 // @access  Private (Student)
 const createRequest = async (req, res) => {
-    const { title, description, urgency } = req.body;
+    const { title, description, urgency, student_id } = req.body;
 
     try {
+        let studentId = req.user.id;
+        let roomNumber = req.user.studentProfile ? req.user.studentProfile.roomNumber : 'Unknown';
+
+        // Helper to check if user has admin privileges
+        const isAdmin = ['admin', 'manager', 'super_admin'].includes(req.user.role);
+
+        if (isAdmin && student_id) {
+            const User = require('../models/User');
+            const targetStudent = await User.findById(student_id);
+            if (!targetStudent) {
+                return res.status(404).json({ message: 'Student not found' });
+            }
+            studentId = student_id;
+            roomNumber = targetStudent.studentProfile ? targetStudent.studentProfile.roomNumber : 'Unknown';
+        }
+
         const request = await MaintenanceRequest.create({
-            student: req.user.id,
+            student: studentId,
             title,
             description,
             urgency,
-            roomNumber: req.user.studentProfile ? req.user.studentProfile.roomNumber : 'Unknown', // Auto-populate
+            roomNumber,
         });
 
         res.status(201).json(request);
