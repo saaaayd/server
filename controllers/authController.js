@@ -7,6 +7,7 @@ const { logAction } = require('../utils/logger');
 
 const nodemailer = require('nodemailer');
 const emailService = require('../services/emailService');
+const twilioService = require('../services/twilioService');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -49,6 +50,10 @@ const registerUser = asyncHandler(async (req, res) => {
             userExists.password = await bcrypt.hash(password, await bcrypt.genSalt(10));
 
             await userExists.save();
+
+            if (userExists.studentProfile && userExists.studentProfile.phoneNumber) {
+                try { await twilioService.sendVerificationSMS(userExists.studentProfile.phoneNumber); } catch (e) { }
+            }
             await emailService.sendOTPEmail(email, otp);
 
             return res.status(200).json({
@@ -94,6 +99,9 @@ const registerUser = asyncHandler(async (req, res) => {
     });
 
     if (user) {
+        if (role === 'student' && studentProfile && studentProfile.phoneNumber) {
+            try { await twilioService.sendVerificationSMS(studentProfile.phoneNumber); } catch (e) { }
+        }
         await emailService.sendOTPEmail(email, otp);
         res.status(201).json({
             message: 'Registration successful. OTP sent to email.',
@@ -126,6 +134,10 @@ const forgotPassword = asyncHandler(async (req, res) => {
     user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
     await user.save();
+
+    if (user.studentProfile && user.studentProfile.phoneNumber) {
+        try { await twilioService.sendVerificationSMS(user.studentProfile.phoneNumber); } catch (e) { }
+    }
     await emailService.sendOTPEmail(email, otp);
 
     res.json({ message: 'OTP sent to your email.' });
@@ -138,13 +150,25 @@ const forgotPassword = asyncHandler(async (req, res) => {
 const resetPassword = asyncHandler(async (req, res) => {
     const { email, otp, newPassword } = req.body;
 
-    const user = await User.findOne({
-        email,
-        otp,
-        otpExpires: { $gt: Date.now() }
-    }).select('+otp +otpExpires');
+    const user = await User.findOne({ email }).select('+otp +otpExpires');
 
     if (!user) {
+        res.status(400);
+        throw new Error('User not found');
+    }
+
+    let isValid = false;
+    if (user.studentProfile && user.studentProfile.phoneNumber) {
+        try {
+            const status = await twilioService.checkVerificationSMS(user.studentProfile.phoneNumber, otp);
+            if (status === 'approved') isValid = true;
+        } catch (e) { }
+    }
+    if (!isValid && user.otp === otp && user.otpExpires > Date.now()) {
+        isValid = true;
+    }
+
+    if (!isValid) {
         res.status(400);
         throw new Error('Invalid or expired OTP');
     }
@@ -166,13 +190,25 @@ const resetPassword = asyncHandler(async (req, res) => {
 const verifyResetOTP = asyncHandler(async (req, res) => {
     const { email, otp } = req.body;
 
-    const user = await User.findOne({
-        email,
-        otp,
-        otpExpires: { $gt: Date.now() }
-    });
+    const user = await User.findOne({ email }).select('+otp +otpExpires');
 
     if (!user) {
+        res.status(400);
+        throw new Error('User not found');
+    }
+
+    let isValid = false;
+    if (user.studentProfile && user.studentProfile.phoneNumber) {
+        try {
+            const status = await twilioService.checkVerificationSMS(user.studentProfile.phoneNumber, otp);
+            if (status === 'approved') isValid = true;
+        } catch (e) { }
+    }
+    if (!isValid && user.otp === otp && user.otpExpires > Date.now()) {
+        isValid = true;
+    }
+
+    if (!isValid) {
         res.status(400);
         throw new Error('Invalid or expired OTP');
     }
@@ -185,13 +221,25 @@ const verifyResetOTP = asyncHandler(async (req, res) => {
 const verifyOTP = asyncHandler(async (req, res) => {
     const { email, otp } = req.body;
 
-    const user = await User.findOne({
-        email,
-        otp,
-        otpExpires: { $gt: Date.now() }
-    }).select('+otp +otpExpires'); // Explicitly select these fields
+    const user = await User.findOne({ email }).select('+otp +otpExpires');
 
     if (!user) {
+        res.status(400);
+        throw new Error('User not found');
+    }
+
+    let isValid = false;
+    if (user.studentProfile && user.studentProfile.phoneNumber) {
+        try {
+            const status = await twilioService.checkVerificationSMS(user.studentProfile.phoneNumber, otp);
+            if (status === 'approved') isValid = true;
+        } catch (e) { }
+    }
+    if (!isValid && user.otp === otp && user.otpExpires > Date.now()) {
+        isValid = true;
+    }
+
+    if (!isValid) {
         res.status(400);
         throw new Error('Invalid or expired OTP');
     }
