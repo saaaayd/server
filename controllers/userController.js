@@ -17,7 +17,7 @@ const getStaff = asyncHandler(async (req, res) => {
 // @access  Admin
 const createStaff = asyncHandler(async (req, res) => {
     // Expect split fields
-    const { firstName, lastName, middleInitial, name, email, password } = req.body;
+    const { firstName, lastName, middleInitial, name, email, password, role } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -39,6 +39,18 @@ const createStaff = asyncHandler(async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Validate role
+    let assignedRole = 'staff';
+    const allowedRoles = ['manager', 'staff', 'admin'];
+
+    if (role && allowedRoles.includes(role)) {
+        if (role === 'admin' && req.user.role !== 'super_admin') {
+            res.status(403);
+            throw new Error('Only a super admin can create an admin user');
+        }
+        assignedRole = role;
+    }
+
     const user = await User.create({
         firstName: fName,
         lastName: lName,
@@ -46,7 +58,7 @@ const createStaff = asyncHandler(async (req, res) => {
         // name, // Pre-save handles this
         email,
         password: hashedPassword,
-        role: 'staff',
+        role: assignedRole,
         status: 'active' // Staff created by admin are active by default
     });
 
@@ -141,7 +153,7 @@ const rejectUser = asyncHandler(async (req, res) => {
 
 // @desc    Update user role
 // @route   PUT /api/users/:id/role
-// @access  Super Admin
+// @access  Admin, Super Admin
 const updateUserRole = asyncHandler(async (req, res) => {
     const { role } = req.body;
 
@@ -151,6 +163,12 @@ const updateUserRole = asyncHandler(async (req, res) => {
     if (!allowedRoles.includes(role)) {
         res.status(400);
         throw new Error('Invalid role');
+    }
+
+    // Only super_admin can assign 'admin' role
+    if (role === 'admin' && req.user.role !== 'super_admin') {
+        res.status(403);
+        throw new Error('Only a super admin can promote a user to admin');
     }
 
     const user = await User.findById(req.params.id);

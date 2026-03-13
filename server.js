@@ -25,9 +25,10 @@ app.use('/uploads', express.static('uploads'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 // Database Connection
+console.log('Attempting to connect to MongoDB...');
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.log('MongoDB Connection Error:', err));
+    .then(() => console.log('MongoDB Connected successfully'))
+    .catch(err => console.error('MongoDB Connection Error on startup:', err));
 
 // Routes
 const authRoutes = require('./routes/authRoutes');

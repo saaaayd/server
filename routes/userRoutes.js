@@ -19,8 +19,8 @@ router.get('/:id/history', restrictTo('admin', 'manager', 'super_admin'), requir
 router.get('/staff', restrictTo('admin', 'manager', 'super_admin'), getStaff);
 router.post('/staff', restrictTo('admin', 'manager', 'super_admin'), createStaff);
 
-// Super Admin Only
-router.put('/:id/role', restrictTo('super_admin'), updateUserRole);
+// Admin and Super Admin
+router.put('/:id/role', restrictTo('admin', 'super_admin'), updateUserRole);
 router.delete('/:id', restrictTo('admin', 'manager', 'super_admin'), require('../controllers/userController').deleteUser);
 
 module.exports = router;

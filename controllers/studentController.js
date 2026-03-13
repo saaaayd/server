@@ -24,11 +24,23 @@ const createStudent = asyncHandler(async (req, res) => {
         throw new Error('User already exists');
     }
 
-    // Fetch room details if room_id is provided
+    // Fetch room details and check capacity if room_id is provided
     let roomNumber = 'N/A';
     if (room_id) {
         const room = await Room.findById(room_id);
         if (room) {
+            // Check capacity
+            const currentOccupants = await User.countDocuments({
+                'studentProfile.roomNumber': room.roomNumber,
+                'studentProfile.status': { $in: ['active', 'inactive'] }, // Considering those assigned but not graduated
+                status: { $ne: 'rejected' }
+            });
+            
+            if (currentOccupants >= room.capacity) {
+                res.status(400);
+                throw new Error('Room is already fully occupied.');
+            }
+            
             roomNumber = room.roomNumber;
         }
     }
@@ -49,7 +61,10 @@ const createStudent = asyncHandler(async (req, res) => {
         studentProfile: {
             roomNumber: roomNumber,
             enrollmentDate: req.body.enrollment_date || new Date(),
-            status: status || 'inactive'
+            status: status || 'inactive',
+            phoneNumber: req.body.phone_number || '',
+            emergencyContactName: req.body.emergency_contact_name || '',
+            emergencyContactPhone: req.body.emergency_contact_phone || ''
         }
     });
 
@@ -87,10 +102,23 @@ const updateStudent = asyncHandler(async (req, res) => {
 
         // Update Room if room_id provided
         if (req.body.room_id) {
-            const room = await Room.findById(req.body.room_id);
-            if (room) {
-                user.studentProfile.roomNumber = room.roomNumber;
-            }
+             const room = await Room.findById(req.body.room_id);
+             if (room) {
+                 // Only check capacity if room is actually changing
+                 if (user.studentProfile.roomNumber !== room.roomNumber) {
+                     const currentOccupants = await User.countDocuments({
+                         'studentProfile.roomNumber': room.roomNumber,
+                         'studentProfile.status': { $in: ['active', 'inactive'] },
+                         status: { $ne: 'rejected' }
+                     });
+                     
+                     if (currentOccupants >= room.capacity) {
+                         res.status(400);
+                         throw new Error('Room is already fully occupied.');
+                     }
+                 }
+                 user.studentProfile.roomNumber = room.roomNumber;
+             }
         }
 
         // Sync user account status with profile status
@@ -101,8 +129,10 @@ const updateStudent = asyncHandler(async (req, res) => {
         }
 
         // Update other fields as needed
-        if (req.body.phone_number) user.studentProfile.phoneNumber = req.body.phone_number;
-        if (req.body.enrollment_date) user.studentProfile.enrollmentDate = req.body.enrollment_date;
+        if (req.body.phone_number !== undefined) user.studentProfile.phoneNumber = req.body.phone_number;
+        if (req.body.enrollment_date !== undefined) user.studentProfile.enrollmentDate = req.body.enrollment_date;
+        if (req.body.emergency_contact_name !== undefined) user.studentProfile.emergencyContactName = req.body.emergency_contact_name;
+        if (req.body.emergency_contact_phone !== undefined) user.studentProfile.emergencyContactPhone = req.body.emergency_contact_phone;
     }
 
     const updatedUser = await user.save();

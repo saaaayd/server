@@ -450,6 +450,11 @@ const updateProfile = asyncHandler(async (req, res) => {
 const googleLogin = asyncHandler(async (req, res) => {
     const { token } = req.body;
 
+    if (!process.env.GOOGLE_CLIENT_ID) {
+        res.status(503);
+        throw new Error('Google login is not configured on this server.');
+    }
+
     const ticket = await client.verifyIdToken({
         idToken: token,
         audience: process.env.GOOGLE_CLIENT_ID,

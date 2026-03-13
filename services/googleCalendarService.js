@@ -1,30 +1,35 @@
 const { google } = require('googleapis');
-const path = require('path');
 
-// Assuming a service account key file is present or env vars are set
-// Ideally, use GOOGLE_APPLICATION_CREDENTIALS env var pointing to the json key file
+// OAuth2 credentials from environment
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
-const getAuthClient = async () => {
-    // If using a service account key file
-    const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, '../service-account-key.json');
+/**
+ * Creates an OAuth2 client using Client ID, Client Secret, and Refresh Token.
+ * The refresh token allows the server to obtain new access tokens automatically.
+ */
+const getAuthClient = () => {
+    const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        'http://localhost:3000/oauth2callback' // Redirect URI used during token generation
+    );
 
-    const auth = new google.auth.GoogleAuth({
-        keyFile: keyPath,
-        scopes: SCOPES,
+    // Set the refresh token so the client can auto-refresh access tokens
+    oauth2Client.setCredentials({
+        refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
     });
 
-    return auth.getClient();
+    return oauth2Client;
 };
 
 const calendar = google.calendar('v3');
 
 /**
- * Lists the next 10 events on the user's primary calendar.
+ * Lists the next 10 events on the configured calendar.
  */
 const listEvents = async () => {
     try {
-        const auth = await getAuthClient();
+        const auth = getAuthClient();
         const res = await calendar.events.list({
             auth,
             calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
@@ -35,37 +40,33 @@ const listEvents = async () => {
         });
         return res.data.items;
     } catch (error) {
-        console.error('Error listing calendar events:', error);
+        console.error('Error listing calendar events:', error.message);
         return [];
     }
 };
 
 /**
- * Creates a new event on the primary calendar + invites attendees.
- * @param {object} task - Task object with title, dueDate, assignedTo (with email)
+ * Creates a new event on the calendar.
+ * @param {object} task - Task object from taskController. Expected shape:
+ *   { title, type, area, assignedRoom, dueDate, notes, attendees: [{ email }] }
  */
 const createEvent = async (task) => {
     try {
-        const auth = await getAuthClient();
+        const auth = getAuthClient();
+
+        // Build attendees list from task.attendees array (set by taskController)
+        const attendees = (task.attendees || []).map(a => ({ email: a.email }));
 
         const event = {
             summary: task.title,
-            description: `Task Type: ${task.type}\nNotes: ${task.notes || 'None'}\nAssigned To: ${task.assignedTo.name} (${task.assignedTo.email})`,
+            description: `Task Type: ${task.type}\nArea: ${task.area}\nRoom: ${task.assignedRoom}\nNotes: ${task.notes || 'None'}`,
             start: {
                 dateTime: new Date(task.dueDate).toISOString(),
-                // Default to 1 hour duration or just a specific time? 
-                // Let's assume it's an all-day event or just a point in time. 
-                // Tasks might be cleaner as all-day events?
-                // For now, let's make it an all-day event if time is 00:00, or specific time.
-                // Simpler: 1 hour duration.
             },
             end: {
                 dateTime: new Date(new Date(task.dueDate).getTime() + 60 * 60 * 1000).toISOString(),
             },
-            attendees: [
-                { email: task.assignedTo.email },
-                // { email: 'admin@dorm.com' } // Optional: invite admin
-            ],
+            attendees,
             reminders: {
                 useDefault: false,
                 overrides: [
@@ -79,60 +80,58 @@ const createEvent = async (task) => {
             auth,
             calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
             resource: event,
-            sendUpdates: 'all', // Send emails
+            sendUpdates: 'all',
         });
 
-        console.log('Event created: %s', res.data.htmlLink);
-        return res.data.id; // Return Google Event ID
+        console.log('Google Calendar event created:', res.data.htmlLink);
+        return res.data.id;
     } catch (error) {
-        console.error('Error creating calendar event:', error);
+        console.error('Error creating calendar event:', error.message);
         return null;
     }
 };
 
 /**
  * Deletes an event from the calendar.
- * @param {string} eventId 
+ * @param {string} eventId - The Google Calendar event ID
  */
 const deleteEvent = async (eventId) => {
     if (!eventId) return;
     try {
-        const auth = await getAuthClient();
+        const auth = getAuthClient();
         await calendar.events.delete({
             auth,
             calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
             eventId: eventId,
         });
-        console.log('Event deleted:', eventId);
+        console.log('Google Calendar event deleted:', eventId);
     } catch (error) {
-        console.error('Error deleting calendar event:', error);
+        console.error('Error deleting calendar event:', error.message);
     }
 };
 
 /**
- * Lists holidays from the public holiday calendar.
+ * Lists Philippine holidays from Google's public holiday calendar.
  */
 const listHolidays = async () => {
     try {
-        const auth = await getAuthClient();
+        const auth = getAuthClient();
         const res = await calendar.events.list({
             auth,
-            // Use 'en.philippines#holiday@group.v.calendar.google.com' for PH holidays, or just 'en.usa#holiday@group.v.calendar.google.com' etc.
-            // Let's default to Philippines as inferred from currency.
             calendarId: 'en.philippines#holiday@group.v.calendar.google.com',
-            timeMin: new Date(new Date().getFullYear(), 0, 1).toISOString(), // Start of current year
+            timeMin: new Date(new Date().getFullYear(), 0, 1).toISOString(),
             maxResults: 100,
             singleEvents: true,
             orderBy: 'startTime',
         });
         return res.data.items.map(item => ({
             title: item.summary,
-            dueDate: item.start.date || item.start.dateTime, // Map to same field as Task for frontend simplicity? Or keep separate.
+            dueDate: item.start.date || item.start.dateTime,
             start: item.start.date || item.start.dateTime,
             type: 'holiday'
         }));
     } catch (error) {
-        console.error('Error listing holidays:', error);
+        console.error('Error listing holidays:', error.message);
         return [];
     }
 };
