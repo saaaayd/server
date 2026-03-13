@@ -19,6 +19,10 @@ const createStaff = asyncHandler(async (req, res) => {
     // Expect split fields
     const { firstName, lastName, middleInitial, name, email, password, role } = req.body;
 
+    console.log('--- CREATE STAFF DEBUG ---');
+    console.log('Payload from frontend:', req.body);
+    console.log('Role extracted:', role);
+
     const userExists = await User.findOne({ email });
     if (userExists) {
         res.status(400);
